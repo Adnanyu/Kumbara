@@ -12,6 +12,7 @@ export function Upload() {
   const [stage, setStage] = useState<Stage>("idle");
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState<string>("");
+  const [progressText, setProgressText] = useState<string>("");
   const [preview, setPreview] = useState<{ txns: Transaction[]; skipped: number; warning?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingDoc, setPendingDoc] = useState<Omit<Document, "included" | "transactionCount"> | null>(null);
@@ -21,8 +22,9 @@ export function Upload() {
     setStage("parsing");
     setError(null);
     setFileName(file.name);
+    setProgressText("Reading file…");
     try {
-      const { rows, warning } = await parseFile(file);
+      const { rows, warning } = await parseFile(file, (status) => setProgressText(status));
       const mapping = detectColumns(rows);
       if (!mapping.dateKey || !mapping.descKey || (!mapping.amountKey && !mapping.debitKey && !mapping.creditKey)) {
         setError(
@@ -80,8 +82,9 @@ export function Upload() {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Import</p>
         <h1 className="font-display text-3xl tracking-tight">Add a bank statement</h1>
         <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-          CSV and Excel files parse reliably. PDF support is best-effort — for scanned or complex statements, export
-          CSV or Excel from your bank for the most accurate results.
+          CSV and Excel files parse instantly and most reliably. PDF statements are read directly when they contain
+          real text, and automatically fall back to in-browser OCR for scanned/image-based statements (common with
+          some banks) — either way, nothing leaves your browser.
         </p>
       </div>
 
@@ -116,8 +119,13 @@ export function Upload() {
             }}
           />
           <Button onClick={() => inputRef.current?.click()} disabled={stage === "parsing"}>
-            {stage === "parsing" ? "Reading file…" : "Choose file"}
+            {stage === "parsing" ? progressText || "Reading file…" : "Choose file"}
           </Button>
+          {stage === "parsing" && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Scanned PDFs are read with in-browser OCR and can take a bit longer — nothing leaves your browser.
+            </p>
+          )}
           <div className="mt-6 flex items-center gap-6 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <FileSpreadsheet size={14} /> CSV
@@ -126,7 +134,7 @@ export function Upload() {
               <FileSpreadsheet size={14} /> XLSX
             </span>
             <span className="flex items-center gap-1.5">
-              <FileType size={14} /> PDF (beta)
+              <FileType size={14} /> PDF (text or scanned)
             </span>
           </div>
         </div>
