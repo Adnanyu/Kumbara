@@ -12,11 +12,13 @@ export interface ParseResult {
   warning?: string;
 }
 
-export async function parseFile(file: File): Promise<ParseResult> {
+export type ProgressCallback = (status: string) => void;
+
+export async function parseFile(file: File, onProgress?: ProgressCallback): Promise<ParseResult> {
   const ext = file.name.split(".").pop()?.toLowerCase();
   if (ext === "csv") return parseCsv(file);
   if (ext === "xlsx" || ext === "xls") return parseXlsx(file);
-  if (ext === "pdf") return parsePdfBestEffort(file);
+  if (ext === "pdf") return parsePdf(file, onProgress);
   throw new Error("Unsupported file type. Please upload a .csv, .xlsx, or .pdf file.");
 }
 
@@ -41,49 +43,121 @@ async function parseXlsx(file: File): Promise<ParseResult> {
   return { rows };
 }
 
-// Bank-issued PDF statements are usually scanned/vector text without a
-// stable structure, and we don't have a PDF text-extraction library
-// available client-side. We make a best-effort pass by reading the raw
-// bytes for a text stream and pattern-matching date/amount/description
-// triples. This works for simple text-based PDF exports but is not
-// reliable for all banks — CSV or XLSX exports are recommended instead.
-async function parsePdfBestEffort(file: File): Promise<ParseResult> {
-  const text = await file.text();
-  // Extract anything that looks like readable text between PDF stream markers
-  const cleaned = text.replace(/[^\x20-\x7E\n]+/g, " ");
-  const lines = cleaned.split(/\n|\\n/).map((l) => l.trim()).filter(Boolean);
+// Matches a transaction line like:
+//   06/01 Card Purchase 05/29 Marhaba Mclean VA Card 0712 -35.73 931.50
+// Captures: leading date, description, amount, and (optionally) running balance.
+const TXN_LINE_RE =
+  /^(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s+(.+?)\s+(-?\$?[\d,]+\.\d{2})(?:\s+(-?\$?[\d,]+\.\d{2}))?\s*$/;
 
-  const dateRe = /(\d{1,2}\/\d{1,2}\/\d{2,4}|\d{4}-\d{2}-\d{2})/;
-  const amountRe = /-?\$?\d{1,3}(?:,\d{3})*\.\d{2}/g;
+const STATEMENT_PERIOD_RE =
+  /([A-Z][a-z]+ \d{1,2},? \d{4})\s*(?:through|-|to|–)\s*([A-Z][a-z]+ \d{1,2},? \d{4})/;
 
+function tryParseMonthDayYear(text: string): Date | null {
+  const d = new Date(text.replace(",", ""));
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Bank statements often print transaction dates as "MM/DD" with no year,
+// relying on the printed statement period for context. This resolves the
+// year by picking whichever of the statement's start/end years lands the
+// date inside (or just before) the statement window.
+function resolveYear(monthDay: string, periodStart: Date | null, periodEnd: Date | null): string {
+  const [mm, dd] = monthDay.split("/").map(Number);
+  const candidateYears = new Set<number>();
+  if (periodStart) candidateYears.add(periodStart.getFullYear());
+  if (periodEnd) candidateYears.add(periodEnd.getFullYear());
+  if (candidateYears.size === 0) candidateYears.add(new Date().getFullYear());
+
+  let best = Array.from(candidateYears)[0];
+  if (periodStart && periodEnd) {
+    const lowerBound = new Date(periodStart);
+    lowerBound.setDate(lowerBound.getDate() - 3);
+    const upperBound = new Date(periodEnd);
+    upperBound.setDate(upperBound.getDate() + 3);
+    for (const year of candidateYears) {
+      const candidate = new Date(year, mm - 1, dd);
+      if (candidate >= lowerBound && candidate <= upperBound) {
+        best = year;
+        break;
+      }
+    }
+  }
+  return String(best);
+}
+
+function linesToRows(lines: string[], periodStart: Date | null, periodEnd: Date | null): RawRow[] {
   const rows: RawRow[] = [];
-  for (const line of lines) {
-    const dateMatch = line.match(dateRe);
-    if (!dateMatch) continue;
-    const amounts = line.match(amountRe);
-    if (!amounts || amounts.length === 0) continue;
-    const amountStr = amounts[amounts.length - 1];
-    const description = line
-      .replace(dateMatch[0], "")
-      .replace(amountStr, "")
-      .replace(/\s{2,}/g, " ")
-      .trim();
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\s+/g, " ").trim();
+    const match = line.match(TXN_LINE_RE);
+    if (!match) continue;
+    const [, monthDay, descriptionRaw, amountRaw] = match;
+    const description = descriptionRaw.replace(/\s{2,}/g, " ").trim();
+    // Skip obvious non-transaction rows (e.g. "Beginning Balance $1,020.23"
+    // can slip through if it happens to have a date-like prefix nearby).
+    if (/^(beginning|ending|opening|closing)\s+balance$/i.test(description)) continue;
     if (description.length < 2) continue;
-    rows.push({ Date: dateMatch[0], Description: description, Amount: amountStr.replace(/[$,]/g, "") });
+
+    const year = resolveYear(monthDay, periodStart, periodEnd);
+    const [mm, dd] = monthDay.split("/");
+    const isoDate = `${year}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+
+    rows.push({
+      Date: isoDate,
+      Description: description,
+      Amount: amountRaw.replace(/[$,]/g, ""),
+    });
+  }
+  return rows;
+}
+
+async function parsePdf(file: File, onProgress?: ProgressCallback): Promise<ParseResult> {
+  onProgress?.("Reading PDF…");
+  const { extractTextLayer } = await import("./pdfText");
+  const { pages, fullText } = await extractTextLayer(file);
+
+  const periodMatch = fullText.match(STATEMENT_PERIOD_RE);
+  const periodStart = periodMatch ? tryParseMonthDayYear(periodMatch[1]) : null;
+  const periodEnd = periodMatch ? tryParseMonthDayYear(periodMatch[2]) : null;
+
+  const textLayerLines = pages.flatMap((p) => p.lines);
+  let rows = linesToRows(textLayerLines, periodStart, periodEnd);
+  let usedOcr = false;
+
+  // If the text layer barely produced any transaction-shaped lines, the
+  // statement table is most likely rendered as an image (common for Chase
+  // and several other banks). Fall back to in-browser OCR.
+  if (rows.length < 3) {
+    usedOcr = true;
+    const { ocrPdfPages } = await import("./ocr");
+    const pageTexts = await ocrPdfPages(file, (page, total, stage) => {
+      onProgress?.(stage === "rendering" ? `Rendering page ${page} of ${total}…` : `Reading page ${page} of ${total}…`);
+    });
+    const ocrLines = pageTexts.flatMap((t) => t.split("\n"));
+    rows = linesToRows(ocrLines, periodStart, periodEnd);
   }
 
   if (rows.length === 0) {
     return {
       rows: [],
       warning:
-        "We couldn't find readable transaction lines in this PDF. Many bank PDF exports are scanned images or use complex layouts our in-browser reader can't parse reliably. For best results, export your statement as CSV or Excel instead.",
+        "We couldn't find readable transaction lines in this PDF, even with OCR. Some statements use layouts our reader can't parse reliably — exporting CSV or Excel from your bank will always work best.",
     };
   }
-  return {
-    rows,
-    warning:
-      "PDF parsing is best-effort and may miss or misread some lines. Please review the imported transactions below for accuracy.",
-  };
+
+  const warnings: string[] = [];
+  if (usedOcr) {
+    warnings.push(
+      "This statement's transaction table appears to be an image, so we read it with in-browser OCR. Please double check amounts and dates below — OCR can occasionally misread a character."
+    );
+  } else {
+    warnings.push("Please review the imported transactions below for accuracy.");
+  }
+  if (!periodMatch) {
+    warnings.push("We couldn't find a statement period to confirm the year on each date — please verify the dates below.");
+  }
+
+  return { rows, warning: warnings.join(" ") };
 }
 
 const DATE_KEYS = ["date", "transaction date", "posted date", "posting date", "trans date"];

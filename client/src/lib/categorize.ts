@@ -21,14 +21,14 @@ const RULES: Array<[Category, string[]]> = [
   ],
   [
     "Dining",
-    ["restaurant", "starbucks", "chipotle", "mcdonald", "doordash", "grubhub", "uber eats", "cafe", "coffee", "pizza", "sushi", "bar & grill", "taco"],
+    ["restaurant", "starbucks", "chipotle", "mcdonald", "doordash", "grubhub", "uber eats", "cafe", "coffee", "pizza", "sushi", "bar & grill", "taco", "canteen"],
   ],
   ["Transport", ["uber", "lyft", "metro", "transit", "parking", "toll", "amtrak", "delta air", "united air", "southwest air"]],
-  ["Utilities", ["electric", "water bill", "gas bill", "utility", "pepco", "comcast", "xfinity", "verizon", "at&t", "t-mobile", "internet service"]],
+  ["Utilities", ["electric", "water bill", "gas bill", "utility", "pepco", "comcast", "xfinity", "verizon", "at&t", "t-mobile", "internet service", "laundry"]],
   ["Health", ["pharmacy", "cvs", "walgreens", "clinic", "medical", "dental", "urgent care", "hospital", "doctor"]],
   ["Entertainment", ["movie", "cinema", "amc", "concert", "ticketmaster", "museum", "amusement", "bowling"]],
   ["Housing", ["rent", "mortgage", "landlord", "property mgmt", "hoa fee"]],
-  ["Shopping", ["amazon", "target", "best buy", "ebay", "etsy", "macy", "nordstrom", "ikea", "home depot", "lowe's", "shopping"]],
+  ["Shopping", ["amazon", "target", "best buy", "ebay", "etsy", "macy", "nordstrom", "ikea", "home depot", "lowe's", "wal-mart", "walmart", "shopping"]],
 ];
 
 export function categorizeTransaction(description: string): Category {
@@ -42,12 +42,18 @@ export function categorizeTransaction(description: string): Category {
 }
 
 export function extractMerchant(description: string): string {
-  // Strip common noise (card auth codes, dates, trailing location refs)
   let m = description
     .replace(/\s{2,}/g, " ")
+    // Strip common transaction-type prefixes banks prepend to the merchant name.
+    .replace(/^(card purchase( with pin)?|atm withdrawal|zelle payment to|check paid|ach (debit|credit)|deposit)\s*/i, "")
+    // Strip an embedded secondary date (e.g. the original purchase date vs. post date).
+    .replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/g, "")
+    // Strip trailing card-network reference like "Card 0712".
+    .replace(/\bcard\s*#?\d{3,4}\s*$/i, "")
     .replace(/#\d+/g, "")
-    .replace(/\b\d{4,}\b/g, "")
-    .replace(/(pos|debit|credit|purchase|payment|authorized on \d+\/\d+)/gi, "")
+    .replace(/\b\d{6,}\b/g, "")
+    .replace(/(pos|debit|credit|purchase|payment|authorized on)/gi, "")
+    .replace(/\s{2,}/g, " ")
     .trim();
   m = m.split(/\s{2,}| - /)[0].trim();
   return m.length > 2 ? m : description.trim();

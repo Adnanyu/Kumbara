@@ -34,9 +34,10 @@ come to life. See `client/README.md` and `server/README.md` for full details on 
 
 - **Auth**: username/password, bcrypt-hashed server-side, JWT session tokens (7-day expiry) sent as
   `Authorization: Bearer` headers. No third-party auth provider required.
-- **Statement parsing**: happens entirely in the browser (CSV via PapaParse, Excel via SheetJS, PDF
-  best-effort via pattern extraction). Only structured transaction rows are sent to the server —
-  never the raw uploaded file.
+- **Statement parsing**: happens entirely in the browser. CSV via PapaParse, Excel via SheetJS, PDF
+  via PDF.js (real text layer when present) with an automatic Tesseract.js OCR fallback for
+  scanned/image-based statement tables (common with some banks, e.g. Chase). Only structured
+  transaction rows are sent to the server — never the raw uploaded file.
 - **Storage**: SQLite via better-sqlite3 (a single file, `server/data/kumbara.sqlite`). Swap in
   Postgres/MySQL later by replacing `server/src/db.ts` and the prepared statements in
   `server/src/routes/*` — the route/response shape wouldn't need to change.
@@ -47,8 +48,14 @@ come to life. See `client/README.md` and `server/README.md` for full details on 
 ## Known limitations (read before using with real financial data)
 
 - No email verification, password reset, or account lockout after failed attempts.
-- PDF statement parsing is best-effort pattern matching, not a real PDF text-extraction library —
-  export CSV/XLSX from your bank for reliable results.
+- PDF parsing reads the real text layer when a statement has one, and otherwise falls back to
+  in-browser OCR (Tesseract.js) for scanned/image-rendered tables. OCR is quite accurate but not
+  perfect — it can occasionally misread a digit, so the app flags OCR-imported statements and asks
+  you to double-check the preview before adding it to your dashboard. CSV/XLSX exports from your
+  bank remain the most reliable option.
+- The OCR fallback downloads ~18 MB of model assets (self-hosted in `client/public`, not a
+  third-party CDN) the first time it's used — lazy-loaded via code-splitting, so it doesn't affect
+  anyone who only uploads CSV/XLSX.
 - The `xlsx` (SheetJS) package has a known, currently-unpatched prototype-pollution/ReDoS advisory
   in its npm-published version. Risk is limited to files the user themselves chooses to upload, but
   if you productionize this, consider sandboxing that parse step or evaluating `exceljs` as a
