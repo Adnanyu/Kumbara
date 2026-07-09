@@ -71,7 +71,7 @@ export function SettingsPage() {
         <h2 className="font-display text-lg">Privacy &amp; security</h2>
         <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
           <li>• Statements are parsed locally in your browser — raw files are never uploaded to a server.</li>
-          <li>• Passwords are hashed (SHA-256 with a random salt) before being stored, never in plain text.</li>
+          <li>• Passwords are hashed with bcrypt on the server before being stored, never in plain text.</li>
           <li>• This is a demo-grade prototype: don't use a password you rely on elsewhere.</li>
         </ul>
       </section>

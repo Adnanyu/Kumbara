@@ -90,7 +90,7 @@ export function AuthForm({ onBack, onSuccess }: { onBack: () => void; onSuccess:
         </form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          {mode === "login" ? "New to Kumbara?" : "Already have an account?"}{" "}
+          {mode === "login" ? "New to Ledgerline?" : "Already have an account?"}{" "}
           <button
             className="font-medium text-primary underline-offset-2 hover:underline"
             onClick={() => {
@@ -103,7 +103,7 @@ export function AuthForm({ onBack, onSuccess }: { onBack: () => void; onSuccess:
         </p>
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
-          Demo-grade auth: credentials are hashed with SHA-256 and stored locally to your account. Don't reuse a
+          Demo-grade auth: your password is hashed with bcrypt on the server, never stored in plain text. Don't reuse a
           sensitive password here.
         </p>
       </div>
