@@ -1,4 +1,4 @@
-import { MongoClient } from "mongodb";
+import { MongoClient, Db } from "mongodb";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -11,9 +11,9 @@ if (!uri) {
 
 const client = new MongoClient(uri);
 
-let database;
+let database: Db | undefined;
 
-export async function connectDB() {
+export async function connectDB(): Promise<Db> {
   if (database) return database;
 
   await client.connect();
@@ -25,7 +25,7 @@ export async function connectDB() {
   return database;
 }
 
-export function getDB() {
+export function getDB(): Db {
   if (!database) {
     throw new Error("Database not initialized. Call connectDB() first.");
   }

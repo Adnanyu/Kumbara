@@ -80,7 +80,7 @@ documentsRouter.post("/", async (req, res) => {
   const userId = req.user!.id;
   const docId = randomUUID();
   const uploadedAt = new Date().toISOString();
-  const status = transactions.length > 0 ? "ready" : "issue";
+  const status: "ready" | "issue" = transactions.length > 0 ? "ready" : "issue";
 
   const doc = {
     _id: docId,

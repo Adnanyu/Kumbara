@@ -1,4 +1,3 @@
-import { any } from "zod/v4";
 import { connectDB } from "./mongodb.js";
 
 export async function initDatabase() {
@@ -8,7 +7,7 @@ export async function initDatabase() {
 
   const collections = await db.listCollections().toArray();
 
-  const names = collections.map(c => c.name);
+  const names = collections.map((c) => c.name);
 
   if (!names.includes("users")) {
     await db.createCollection("users");
