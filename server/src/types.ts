@@ -1,33 +1,34 @@
-export interface UserRow {
-  id: string;
+export interface UserDocument {
+  _id: string;
   username: string;
-  display_name: string;
-  password_hash: string;
-  created_at: string;
+  usernameLower: string;
+  displayName: string;
+  passwordHash: string;
+  createdAt: string;
 }
 
-export interface DocumentRow {
-  id: string;
-  user_id: string;
+export interface DocumentDocument {
+  _id: string;
+  userId: string;
   name: string;
-  type: string;
-  uploaded_at: string;
-  included: number;
-  transaction_count: number;
-  status: string;
+  type: "csv" | "xlsx" | "pdf";
+  uploadedAt: string;
+  included: boolean;
+  transactionCount: number;
+  status: "ready" | "issue";
   note: string | null;
 }
 
-export interface TransactionRow {
-  id: string;
-  user_id: string;
-  doc_id: string;
+export interface TransactionDocument {
+  _id: string;
+  userId: string;
+  docId: string;
   date: string;
   description: string;
   merchant: string;
   amount: number;
   category: string;
-  category_overridden: number;
+  categoryOverridden: boolean;
 }
 
 export interface AuthedRequestUser {

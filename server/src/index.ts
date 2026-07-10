@@ -3,11 +3,11 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import "./db.js"; // ensures schema is created on boot
 import { authRouter } from "./routes/auth.js";
 import { documentsRouter } from "./routes/documents.js";
 import { transactionsRouter } from "./routes/transactions.js";
 import { assistantRouter } from "./routes/assistant.js";
+import { initDatabase } from "./db/init.js";
 
 const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
@@ -41,6 +41,17 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   res.status(500).json({ error: "Something went wrong on our end." });
 });
 
-app.listen(PORT, () => {
-  console.log(`Kumbara API listening on http://localhost:${PORT}`);
-});
+// Initialize MongoDB before starting the server
+async function startServer() {
+  try {
+    await initDatabase();
+    app.listen(PORT, () => {
+      console.log(`🚀 Kumbara API listening on http://localhost:${PORT}`);
+    });
+  } catch (err) {
+    console.error("Failed to connect to MongoDB Atlas");
+    console.error(err);
+    process.exit(1);
+  }
+}
+startServer();
