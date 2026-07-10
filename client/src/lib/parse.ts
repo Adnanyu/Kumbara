@@ -1,7 +1,7 @@
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
-import { categorizeTransaction, extractMerchant } from "./categorize";
-import type { Transaction } from "./types";
+import { categorizeTransaction, categorizeWithMemory, extractMerchant } from "./categorize";
+import type { Category, Transaction } from "./types";
 
 export interface RawRow {
   [key: string]: string | number;
@@ -221,7 +221,12 @@ export function detectColumns(rows: RawRow[]): ColumnMapping {
   };
 }
 
-export function rowsToTransactions(rows: RawRow[], mapping: ColumnMapping, docId: string): { txns: Transaction[]; skipped: number } {
+export function rowsToTransactions(
+  rows: RawRow[],
+  mapping: ColumnMapping,
+  docId: string,
+  learnedMap?: Map<string, Category>
+): { txns: Transaction[]; skipped: number } {
   const txns: Transaction[] = [];
   let skipped = 0;
   rows.forEach((row, i) => {
@@ -245,7 +250,12 @@ export function rowsToTransactions(rows: RawRow[], mapping: ColumnMapping, docId
     }
 
     const merchant = extractMerchant(description);
-    const category = amount > 0 && /payroll|salary|deposit|refund/i.test(description) ? "Income" : categorizeTransaction(description);
+    const category =
+      amount > 0 && /payroll|salary|deposit|refund/i.test(description)
+        ? "Income"
+        : learnedMap
+          ? categorizeWithMemory(description, merchant, learnedMap)
+          : categorizeTransaction(description);
 
     txns.push({
       id: `${docId}-${i}-${Math.random().toString(36).slice(2, 8)}`,

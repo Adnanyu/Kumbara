@@ -12,6 +12,7 @@ export type Category =
   | "Health"
   | "Entertainment"
   | "Housing"
+  | "Transfers"
   | "Income"
   | "Other";
 
@@ -67,6 +68,7 @@ export const CATEGORIES: Category[] = [
   "Health",
   "Entertainment",
   "Housing",
+  "Transfers",
   "Income",
   "Other",
 ];
@@ -85,6 +87,7 @@ export const CATEGORY_COLORS: Record<Category, string> = {
   Health: "#3E9B5C",
   Entertainment: "#A6472F",
   Housing: "#5C4B8A",
+  Transfers: "#7C8CC4",
   Income: "#2F6F5E",
   Other: "#9AA3AC",
 };

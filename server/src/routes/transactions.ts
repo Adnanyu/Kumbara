@@ -41,6 +41,7 @@ const CATEGORIES = [
   "Health",
   "Entertainment",
   "Housing",
+  "Transfers",
   "Income",
   "Other",
 ] as const;

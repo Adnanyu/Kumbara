@@ -170,3 +170,55 @@ export function overallStats(txns: Transaction[]) {
     transactionCount: txns.length,
   };
 }
+
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Parses a "YYYY-MM-DD" date as a local calendar date (not UTC midnight)
+// so the weekday matches what the user actually sees on their statement.
+function parseLocalDate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
+
+export function spendingByWeekday(txns: Transaction[]): { day: string; total: number }[] {
+  const totals = new Array(7).fill(0);
+  for (const t of expensesOnly(txns)) {
+    const day = parseLocalDate(t.date).getDay();
+    totals[day] += Math.abs(t.amount);
+  }
+  // Order Mon -> Sun, which reads more naturally than starting on Sunday.
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  return order.map((day) => ({ day: WEEKDAY_LABELS[day], total: Math.round(totals[day] * 100) / 100 }));
+}
+
+export function incomeVsExpenseByMonth(txns: Transaction[]): { month: string; income: number; expense: number }[] {
+  const map = new Map<string, { income: number; expense: number }>();
+  for (const t of txns) {
+    const key = monthKey(t.date);
+    if (!map.has(key)) map.set(key, { income: 0, expense: 0 });
+    const cur = map.get(key)!;
+    if (t.amount > 0) cur.income += t.amount;
+    else if (t.category !== "Income") cur.expense += Math.abs(t.amount);
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([month, v]) => ({
+      month,
+      income: Math.round(v.income * 100) / 100,
+      expense: Math.round(v.expense * 100) / 100,
+    }));
+}
+
+// Running total of spend across the (already filtered) transaction set,
+// in date order — shows the shape of a burn-down within the selected range
+// rather than just a per-month bucket total.
+export function cumulativeSpending(txns: Transaction[]): { date: string; cumulative: number }[] {
+  const sorted = [...expensesOnly(txns)].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  let running = 0;
+  const byDate = new Map<string, number>();
+  for (const t of sorted) {
+    running += Math.abs(t.amount);
+    byDate.set(t.date, Math.round(running * 100) / 100);
+  }
+  return Array.from(byDate.entries()).map(([date, cumulative]) => ({ date, cumulative }));
+}
