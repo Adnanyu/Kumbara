@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { Button } from "@/components/ui/button";
 import { parseFile, detectColumns, rowsToTransactions } from "@/lib/parse";
+import { buildLearnedCategoryMap } from "@/lib/categorize";
 import type { Document, Transaction } from "@/lib/types";
 import {
   UploadCloud,
@@ -30,7 +31,7 @@ interface UploadItem {
 }
 
 export function Upload() {
-  const { addDocument } = useApp();
+  const { addDocument, transactions } = useApp();
   const [items, setItems] = useState<UploadItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [committing, setCommitting] = useState(false);
@@ -55,7 +56,10 @@ export function Upload() {
         }
         const ext = file.name.split(".").pop()?.toLowerCase();
         const docId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        const { txns, skipped } = rowsToTransactions(rows, mapping, docId);
+        // Merchants the user has already categorized (manually or otherwise)
+        // take priority over the static keyword rules for this new import.
+        const learnedMap = buildLearnedCategoryMap(transactions);
+        const { txns, skipped } = rowsToTransactions(rows, mapping, docId, learnedMap);
         updateItem(id, {
           stage: "preview",
           pendingDoc: {
@@ -75,7 +79,7 @@ export function Upload() {
         });
       }
     },
-    [updateItem]
+    [updateItem, transactions]
   );
 
   const handleFiles = useCallback(
