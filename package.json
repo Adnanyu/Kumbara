@@ -5,6 +5,7 @@
     "node": "22.x"
   },
   "scripts": {
-    "heroku-postbuild": "npm install --prefix client && npm run build --prefix client && npm install --prefix server && npm run build --prefix server"
+    "heroku-postbuild": "npm install --prefix client --legacy-peer-deps && npm run build --prefix client && npm install --prefix server --legacy-peer-deps && npm run build --prefix server",
+    "start": "node server/dist/index.js"
   }
 }
