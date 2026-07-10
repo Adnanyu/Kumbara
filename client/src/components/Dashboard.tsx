@@ -11,6 +11,9 @@ import {
   categoryTrends,
   detectAnomalies,
   overallStats,
+  spendingByWeekday,
+  incomeVsExpenseByMonth,
+  cumulativeSpending,
 } from "@/lib/analytics";
 import {
   AreaChart,
@@ -26,6 +29,8 @@ import {
   BarChart,
   Bar,
   Legend,
+  LineChart,
+  Line,
 } from "recharts";
 import { ArrowDownRight, ArrowUpRight, Repeat, TrendingUp, AlertTriangle, Trophy, TrendingDown } from "lucide-react";
 
@@ -44,6 +49,9 @@ export function Dashboard() {
   const trendByMonth = useMemo(() => categoryByMonth(filtered), [filtered]);
   const trends = useMemo(() => categoryTrends(filtered).slice(0, 5), [filtered]);
   const anomalies = useMemo(() => detectAnomalies(filtered).slice(0, 5), [filtered]);
+  const weekdaySpend = useMemo(() => spendingByWeekday(filtered), [filtered]);
+  const incomeVsExpense = useMemo(() => incomeVsExpenseByMonth(filtered), [filtered]);
+  const cumulative = useMemo(() => cumulativeSpending(filtered), [filtered]);
 
   const hasData = includedTransactions.length > 0;
   const topCatKeys = byCategory.slice(0, 6).map((c) => c.category);
@@ -174,6 +182,52 @@ export function Dashboard() {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="rounded-lg border border-border bg-card p-6 lg:col-span-2">
+          <h3 className="font-display text-base">Income vs. expenses</h3>
+          <p className="mb-4 text-xs text-muted-foreground">Money in vs. money out per month</p>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={incomeVsExpense}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+              <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `$${v}`} />
+              <Tooltip formatter={((v: number) => `$${Number(v).toLocaleString()}`) as any} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="income" name="Income" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="expense" name="Expenses" fill="hsl(var(--destructive))" radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h3 className="font-display text-base">By day of week</h3>
+          <p className="mb-4 text-xs text-muted-foreground">When you tend to spend</p>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={weekdaySpend}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+              <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `$${v}`} />
+              <Tooltip formatter={((v: number) => [`$${Number(v).toLocaleString()}`, "Spent"]) as any} />
+              <Bar dataKey="total" fill="hsl(var(--accent))" radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-6">
+        <h3 className="font-display text-base">Cumulative spend</h3>
+        <p className="mb-4 text-xs text-muted-foreground">Running total across the selected range</p>
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={cumulative}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+            <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" minTickGap={30} />
+            <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `$${v}`} />
+            <Tooltip formatter={((v: number) => [`$${Number(v).toLocaleString()}`, "Cumulative"]) as any} />
+            <Line type="monotone" dataKey="cumulative" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
