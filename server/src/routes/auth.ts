@@ -3,8 +3,8 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
-import { db } from "../db.js";
-import type { UserRow } from "../types.js";
+import { Users } from "../db/collections.js";
+import type { UserDocument } from "../types.js";
 import { signToken, requireAuth } from "../middleware/auth.js";
 
 export const authRouter = Router();
@@ -39,7 +39,7 @@ authRouter.post("/signup", async (req, res) => {
   const displayName = parsed.data.displayName?.length ? parsed.data.displayName : username;
   const usernameLower = username.toLowerCase();
 
-  const existing = db.prepare("SELECT id FROM users WHERE lower(username) = ?").get(usernameLower);
+  const existing = await Users().findOne({usernameLower}) as UserDocument | null;;
   if (existing) {
     return res.status(409).json({ error: "That username is already taken." });
   }
@@ -48,9 +48,14 @@ authRouter.post("/signup", async (req, res) => {
   const id = randomUUID();
   const createdAt = new Date().toISOString();
 
-  db.prepare(
-    "INSERT INTO users (id, username, display_name, password_hash, created_at) VALUES (?, ?, ?, ?, ?)"
-  ).run(id, username, displayName, passwordHash, createdAt);
+  await Users().insertOne({
+    _id: id,
+    username,
+    usernameLower,
+    displayName,
+    passwordHash,
+    createdAt,
+  });
 
   const user = { id, username, displayName };
   const token = signToken(user);
@@ -68,20 +73,24 @@ authRouter.post("/login", async (req, res) => {
     return res.status(400).json({ error: "Username and password are required." });
   }
   const { username, password } = parsed.data;
-  const row = db
-    .prepare("SELECT * FROM users WHERE lower(username) = ?")
-    .get(username.toLowerCase()) as UserRow | undefined;
+  const userDoc = await Users().findOne({
+    usernameLower: username.toLowerCase(),
+  });
 
   // Constant-shape response whether the user exists or not, to avoid
   // leaking which usernames are registered via timing/response differences.
-  const hashToCompare = row?.password_hash ?? "$2a$12$invalidsaltinvalidsaltinvalidsalOOOOOOOOOOOOOOOOOOOOOO";
+  const hashToCompare = userDoc?.passwordHash ?? "$2a$12$invalidsaltinvalidsaltinvalidsalOOOOOOOOOOOOOOOOOOOOOO";
   const valid = await bcrypt.compare(password, hashToCompare);
 
-  if (!row || !valid) {
+  if (!userDoc || !valid) {
     return res.status(401).json({ error: "Incorrect username or password." });
   }
 
-  const user = { id: row.id, username: row.username, displayName: row.display_name };
+  const user = {
+    id: userDoc._id,
+    username: userDoc.username,
+    displayName: userDoc.displayName,
+  };
   const token = signToken(user);
   res.json({ token, user });
 });

@@ -1,43 +1,51 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { db } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
-import type { DocumentRow, TransactionRow } from "../types.js";
+import { Documents, Transactions } from "../db/collections.js";
+import type {
+  DocumentDocument,
+  TransactionDocument,
+} from "../types.js";
 
 export const documentsRouter = Router();
 documentsRouter.use(requireAuth);
 
-function serializeDoc(row: DocumentRow) {
+function serializeDoc(row: DocumentDocument) {
   return {
-    id: row.id,
+    id: row._id,
     name: row.name,
     type: row.type,
-    uploadedAt: row.uploaded_at,
-    included: !!row.included,
-    transactionCount: row.transaction_count,
+    uploadedAt: row.uploadedAt,
+    included: row.included,
+    transactionCount: row.transactionCount,
     status: row.status,
     note: row.note ?? undefined,
   };
 }
 
-function serializeTxn(row: TransactionRow) {
+function serializeTxn(row: TransactionDocument) {
   return {
-    id: row.id,
-    docId: row.doc_id,
+    id: row._id,
+    docId: row.docId,
     date: row.date,
     description: row.description,
     merchant: row.merchant,
     amount: row.amount,
     category: row.category,
-    categoryOverridden: !!row.category_overridden,
+    categoryOverridden: row.categoryOverridden,
   };
 }
 
-documentsRouter.get("/", (req, res) => {
-  const rows = db
-    .prepare("SELECT * FROM documents WHERE user_id = ? ORDER BY uploaded_at DESC")
-    .all(req.user!.id) as DocumentRow[];
+documentsRouter.get("/", async (req, res) => {
+  const rows = await Documents()
+  .find({
+    userId: req.user!.id,
+  })
+  .sort({
+    uploadedAt: -1,
+  })
+  .toArray();
   res.json({ documents: rows.map(serializeDoc) });
 });
 
@@ -58,60 +66,97 @@ const createSchema = z.object({
 
 // Creates a document record plus all of its parsed transactions in one
 // transaction so the two never get out of sync.
-documentsRouter.post("/", (req, res) => {
+documentsRouter.post("/", async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
+
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid document payload." });
+    return res.status(400).json({
+      error: parsed.error.issues[0]?.message ?? "Invalid document payload.",
+    });
   }
+
   const { name, type, note, transactions } = parsed.data;
+
   const userId = req.user!.id;
   const docId = randomUUID();
   const uploadedAt = new Date().toISOString();
   const status = transactions.length > 0 ? "ready" : "issue";
 
-  const insertDoc = db.prepare(
-    `INSERT INTO documents (id, user_id, name, type, uploaded_at, included, transaction_count, status, note)
-     VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)`
-  );
-  const insertTxn = db.prepare(
-    `INSERT INTO transactions (id, user_id, doc_id, date, description, merchant, amount, category, category_overridden)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`
-  );
+  const doc = {
+    _id: docId,
+    userId,
+    name,
+    type,
+    uploadedAt,
+    included: true,
+    transactionCount: transactions.length,
+    status,
+    note: note ?? null,
+  };
 
-  const run = db.transaction(() => {
-    insertDoc.run(docId, userId, name, type, uploadedAt, transactions.length, status, note ?? null);
-    for (const t of transactions) {
-      insertTxn.run(randomUUID(), userId, docId, t.date, t.description, t.merchant, t.amount, t.category);
-    }
+  await Documents().insertOne(doc);
+
+  if (transactions.length) {
+    await Transactions().insertMany(
+      transactions.map((t) => ({
+        _id: randomUUID(),
+        userId,
+        docId,
+        date: t.date,
+        description: t.description,
+        merchant: t.merchant,
+        amount: t.amount,
+        category: t.category,
+        categoryOverridden: false,
+      }))
+    );
+  }
+
+  res.status(201).json({
+    document: serializeDoc(doc),
   });
-  run();
-
-  const doc = db.prepare("SELECT * FROM documents WHERE id = ?").get(docId) as DocumentRow;
-  res.status(201).json({ document: serializeDoc(doc) });
 });
 
-documentsRouter.patch("/:id", (req, res) => {
+documentsRouter.patch("/:id", async (req, res) => {
   const schema = z.object({ included: z.boolean() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "included must be a boolean." });
   }
-  const result = db
-    .prepare("UPDATE documents SET included = ? WHERE id = ? AND user_id = ?")
-    .run(parsed.data.included ? 1 : 0, req.params.id, req.user!.id);
-  if (result.changes === 0) {
+  const result = await Documents().updateOne(
+    {
+      _id: req.params.id,
+      userId: req.user!.id,
+    },
+    {
+      $set: {
+        included: parsed.data.included,
+      },
+    }
+  );
+  if (result.matchedCount === 0) {
     return res.status(404).json({ error: "Document not found." });
   }
   res.json({ ok: true });
 });
 
-documentsRouter.delete("/:id", (req, res) => {
-  const result = db
-    .prepare("DELETE FROM documents WHERE id = ? AND user_id = ?")
-    .run(req.params.id, req.user!.id);
-  if (result.changes === 0) {
-    return res.status(404).json({ error: "Document not found." });
+documentsRouter.delete("/:id", async (req, res) => {
+  const result = await Documents().deleteOne({
+      _id: req.params.id,
+      userId: req.user!.id,
+  });
+
+  if (result.deletedCount === 0) {
+      return res.status(404).json({
+          error: "Document not found."
+      });
   }
+
+  await Transactions().deleteMany({
+      docId: req.params.id,
+      userId: req.user!.id,
+  });
+
   res.json({ ok: true });
 });
 
