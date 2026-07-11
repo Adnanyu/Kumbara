@@ -55,7 +55,7 @@ const WALKTHROUGH_STEPS = [
     title: "Drop in a statement",
     body: "Drag in a CSV, Excel, or PDF export from your bank. Kumbara reads the columns and line items automatically — no template required.",
     icon: UploadCloud,
-    media: "/walkthrough/upload.mov",
+    media: "/walkthrough/upload.mp4",
     mediaType: "video" as const,
   },
   {
@@ -64,7 +64,7 @@ const WALKTHROUGH_STEPS = [
     title: "Watch it categorize itself",
     body: "Every transaction lands in a category — Grocery, Gas, Subscriptions — and rolls straight into the dashboard's charts.",
     icon: PieChart,
-    media: "/walkthrough/show.mov",
+    media: "/walkthrough/show.mp4",
     mediaType: "video" as const,
   },
   {
@@ -73,7 +73,7 @@ const WALKTHROUGH_STEPS = [
     title: "Choose what counts",
     body: "Toggle any statement in or out of your totals. The charts recalculate instantly, so you're only ever looking at the numbers you trust.",
     icon: FolderCog,
-    media: "/walkthrough/manage.mov",
+    media: "/walkthrough/manage.mp4",
     mediaType: "video" as const,
   },
 ];
