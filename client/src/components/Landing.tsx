@@ -200,7 +200,7 @@ function Walkthrough() {
     return () => observer.disconnect();
   }, []);
 
-  const active = WALKTHROUGH_STEPS[activeIndex];
+  // const active = WALKTHROUGH_STEPS[activeIndex];
 
   return (
     <section className="border-t border-border">
@@ -314,51 +314,51 @@ function Walkthrough() {
   );
 }
 
-function StatementMock() {
-  const rows = [
-    { label: "Whole Foods Market", cat: "Grocery", amt: "-$84.12" },
-    { label: "Shell Gas #4471", cat: "Gas", amt: "-$41.30" },
-    { label: "Netflix", cat: "Subscriptions", amt: "-$15.49" },
-    { label: "Direct Deposit", cat: "Income", amt: "+$2,410.00" },
-  ];
-  return (
-    <div className="relative mx-auto w-full max-w-sm">
-      <div className="perforated rounded-lg border border-border bg-card p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <span className="font-mono-data text-[11px] uppercase tracking-widest text-muted-foreground">
-            July Statement
-          </span>
-          <span className="stamp rounded border border-primary/40 px-2 py-0.5 font-mono-data text-[10px] text-primary">
-            reviewed
-          </span>
-        </div>
-        <div className="ledger-rule mb-4" />
-        <ul className="space-y-3">
-          {rows.map((r) => (
-            <li key={r.label} className="flex items-center justify-between text-sm">
-              <div>
-                <p className="leading-tight">{r.label}</p>
-                <p className="text-[11px] text-muted-foreground">{r.cat}</p>
-              </div>
-              <span
-                className={`font-mono-data text-sm ${r.amt.startsWith("+") ? "text-primary" : "text-foreground"}`}
-              >
-                {r.amt}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <div className="ledger-rule my-4" />
-        <div className="flex items-end justify-between">
-          <span className="text-xs text-muted-foreground">Auto-categorized in seconds</span>
-          <div className="flex items-end gap-1">
-            {[14, 22, 10, 30, 18, 26].map((h, i) => (
-              <div key={i} className="w-2 rounded-sm bg-primary/70" style={{ height: `${h}px` }} />
-            ))}
-          </div>
-        </div>
-      </div>
-      <div className="absolute -bottom-4 -right-4 -z-10 h-full w-full rounded-lg border border-border bg-secondary/40" />
-    </div>
-  );
-}
+// function StatementMock() {
+//   const rows = [
+//     { label: "Whole Foods Market", cat: "Grocery", amt: "-$84.12" },
+//     { label: "Shell Gas #4471", cat: "Gas", amt: "-$41.30" },
+//     { label: "Netflix", cat: "Subscriptions", amt: "-$15.49" },
+//     { label: "Direct Deposit", cat: "Income", amt: "+$2,410.00" },
+//   ];
+//   return (
+//     <div className="relative mx-auto w-full max-w-sm">
+//       <div className="perforated rounded-lg border border-border bg-card p-6 shadow-sm">
+//         <div className="mb-4 flex items-center justify-between">
+//           <span className="font-mono-data text-[11px] uppercase tracking-widest text-muted-foreground">
+//             July Statement
+//           </span>
+//           <span className="stamp rounded border border-primary/40 px-2 py-0.5 font-mono-data text-[10px] text-primary">
+//             reviewed
+//           </span>
+//         </div>
+//         <div className="ledger-rule mb-4" />
+//         <ul className="space-y-3">
+//           {rows.map((r) => (
+//             <li key={r.label} className="flex items-center justify-between text-sm">
+//               <div>
+//                 <p className="leading-tight">{r.label}</p>
+//                 <p className="text-[11px] text-muted-foreground">{r.cat}</p>
+//               </div>
+//               <span
+//                 className={`font-mono-data text-sm ${r.amt.startsWith("+") ? "text-primary" : "text-foreground"}`}
+//               >
+//                 {r.amt}
+//               </span>
+//             </li>
+//           ))}
+//         </ul>
+//         <div className="ledger-rule my-4" />
+//         <div className="flex items-end justify-between">
+//           <span className="text-xs text-muted-foreground">Auto-categorized in seconds</span>
+//           <div className="flex items-end gap-1">
+//             {[14, 22, 10, 30, 18, 26].map((h, i) => (
+//               <div key={i} className="w-2 rounded-sm bg-primary/70" style={{ height: `${h}px` }} />
+//             ))}
+//           </div>
+//         </div>
+//       </div>
+//       <div className="absolute -bottom-4 -right-4 -z-10 h-full w-full rounded-lg border border-border bg-secondary/40" />
+//     </div>
+//   );
+// }
