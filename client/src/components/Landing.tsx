@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Logo } from "./Logo";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +10,7 @@ import {
   AlertTriangle,
   SlidersHorizontal,
   FolderCog,
+  ImageOff,
 } from "lucide-react";
 
 const FEATURES = [
@@ -44,6 +46,38 @@ const FEATURES = [
   },
 ];
 
+// Swap `media` for a real screenshot/video path once assets are ready.
+// mediaType controls whether it renders <img>, <video>, or the placeholder.
+const WALKTHROUGH_STEPS = [
+  {
+    tag: "01",
+    label: "UPLOAD",
+    title: "Drop in a statement",
+    body: "Drag in a CSV, Excel, or PDF export from your bank. Kumbara reads the columns and line items automatically — no template required.",
+    icon: UploadCloud,
+    media: "/walkthrough/upload.mov",
+    mediaType: "video" as const,
+  },
+  {
+    tag: "02",
+    label: "ANALYZE",
+    title: "Watch it categorize itself",
+    body: "Every transaction lands in a category — Grocery, Gas, Subscriptions — and rolls straight into the dashboard's charts.",
+    icon: PieChart,
+    media: "/walkthrough/show.mov",
+    mediaType: "video" as const,
+  },
+  {
+    tag: "03",
+    label: "CURATE",
+    title: "Choose what counts",
+    body: "Toggle any statement in or out of your totals. The charts recalculate instantly, so you're only ever looking at the numbers you trust.",
+    icon: FolderCog,
+    media: "/walkthrough/manage.mov",
+    mediaType: "video" as const,
+  },
+];
+
 export function Landing({ onGetStarted }: { onGetStarted: () => void }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -55,7 +89,8 @@ export function Landing({ onGetStarted }: { onGetStarted: () => void }) {
       </header>
 
       {/* Hero */}
-      <section className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-14 px-6 pb-20 pt-8 md:grid-cols-2 md:pt-16">
+      {/* Hero */}
+      <section className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-14 px-6 pb-20 pt-8 md:grid-cols-2 md:pt-16 md:pl-6 md:pr-0">
         <div>
           <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
             Statement in, clarity out
@@ -75,8 +110,15 @@ export function Landing({ onGetStarted }: { onGetStarted: () => void }) {
           </div>
         </div>
 
-        <StatementMock />
+        <img
+          src="/walkthrough/heroSS.png"
+          alt="Kumbara dashboard showing categorized transactions and spending charts"
+          className="w-full md:w-[130%] md:max-w-none"
+        />
       </section>
+
+      {/* Walkthrough */}
+      <Walkthrough />
 
       {/* Feature grid */}
       <section className="border-t border-border bg-card/60">
@@ -130,6 +172,145 @@ export function Landing({ onGetStarted }: { onGetStarted: () => void }) {
         Kumbara — a demo expense intelligence app. Not a substitute for professional financial advice.
       </footer>
     </div>
+  );
+}
+
+function Walkthrough() {
+  const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const idx = stepRefs.current.findIndex((el) => el === entry.target);
+            if (idx !== -1) setActiveIndex(idx);
+          }
+        });
+      },
+      {
+        // Trigger when a step is roughly centered in the viewport.
+        rootMargin: "-40% 0px -40% 0px",
+        threshold: 0,
+      }
+    );
+
+    stepRefs.current.forEach((el) => el && observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  const active = WALKTHROUGH_STEPS[activeIndex];
+
+  return (
+    <section className="border-t border-border">
+      <div className="mx-auto max-w-7xl px-6 py-20">
+        <div className="mb-16 flex items-end justify-between border-b border-border pb-6">
+          <h2 className="font-display text-3xl tracking-tight">How a statement becomes a dashboard</h2>
+          <span className="hidden font-mono-data text-xs text-muted-foreground md:block">02 / THREE STEPS</span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-16 md:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]">
+          {/* Steps column */}
+          {/* Steps column */}
+          <div className="flex flex-col gap-64 md:gap-64">
+            {WALKTHROUGH_STEPS.map((step, i) => (
+              <div
+                key={step.tag}
+                ref={(el) => {
+                  stepRefs.current[i] = el;
+                }}
+                className={`transition-opacity duration-500 ${
+                  i === activeIndex ? "opacity-100" : "opacity-40"
+                }`}
+              >
+                <span className="font-mono-data text-xs tracking-widest text-primary">
+                  {step.tag} — {step.label}
+                </span>
+                <h3 className="my-8 font-display text-2xl tracking-tight">{step.title}</h3>
+                <p className="my-8 max-w-sm text-base leading-relaxed text-muted-foreground">{step.body}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Sticky media column */}
+          <div className="md:sticky md:top-24 md:self-start">
+            <div className="perforated relative overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+              {/* Tab strip */}
+              <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                <div className="flex items-center gap-4">
+                  {WALKTHROUGH_STEPS.map((step, i) => (
+                    <span
+                      key={step.tag}
+                      className={`font-mono-data text-[10px] tracking-widest transition-colors ${
+                        i === activeIndex ? "text-primary" : "text-muted-foreground/50"
+                      }`}
+                    >
+                      {step.tag}
+                    </span>
+                  ))}
+                </div>
+                <span className="stamp rounded border border-primary/40 px-2 py-0.5 font-mono-data text-[10px] text-primary">
+                  live preview
+                </span>
+              </div>
+
+              {/* Media frame */}
+              <div className="relative aspect-[16/10] w-full bg-secondary/30">
+                {WALKTHROUGH_STEPS.map((step, i) => (
+                  <div
+                    key={step.tag}
+                    className={`absolute inset-0 flex flex-col items-center justify-center gap-3 transition-opacity duration-500 ${
+                      i === activeIndex ? "opacity-100" : "pointer-events-none opacity-0"
+                    }`}
+                  >
+                    {step.media ? (
+                      step.mediaType === "video" ? (
+                        <video
+                          src={step.media}
+                          className="h-full w-full object-cover"
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                        />
+                      ) : (
+                        <img src={step.media} alt={step.title} className="h-full w-full object-cover" />
+                      )
+                    ) : (
+                      <>
+                        <div className="flex h-14 w-14 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground">
+                          <step.icon size={22} strokeWidth={1.5} />
+                        </div>
+                        <p className="font-mono-data text-[11px] uppercase tracking-widest text-muted-foreground">
+                          {step.mediaType === "video" ? "Recording" : "Screenshot"} pending
+                        </p>
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
+                          <ImageOff size={12} />
+                          {step.label.toLowerCase()} preview
+                        </span>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Progress dots for mobile, where sticky scroll feels less natural */}
+            <div className="mt-4 flex justify-center gap-2 md:hidden">
+              {WALKTHROUGH_STEPS.map((step, i) => (
+                <span
+                  key={step.tag}
+                  className={`h-1.5 rounded-full transition-all ${
+                    i === activeIndex ? "w-6 bg-primary" : "w-1.5 bg-border"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
